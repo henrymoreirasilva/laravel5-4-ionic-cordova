@@ -1,0 +1,136 @@
+*** LARAVEL 5.1 COM IONIC E CORDOVA
+
+CONFIGURANDO A APLICAÇÃO
+    - Criar o projeto: composer create-project --prefer-dist laravel/laravel <nome_projeto> 5.1.*
+    - Conferir APP_KEY em .env
+    - Modificar o namespace da aplicação: php artisan app:name <novo_namespace>
+    - Criar a pasta App\Models; mover o model User e ajustar o namespace no início do arquivo User.php
+    - Ajustar o namespace de User também em config\auth.php
+    - Configurar o banco de dados no arquivo .env
+    - Rodar a migration para criar as tabelas de usuários
+
+CRIANDO O MODEL CATEGORY
+    - Criar a mgration: php artisan make:migration create_categories_table --create=categories
+        IMPORTANTE: Se o nome do model é Category automaticamente o Laravel reconhece a tabela
+        como categories
+    - Acrescentar as colunas necessárias na migration criada executar: php artisan migrate
+    - Criar o model: php artisan make:model Models/Category
+    - Definir a propriedade $fillable no model criado
+
+CRIANDO A SEEDER
+    - Editar o arquivo database/factories/ModelFactory.php; ajustar o namespace de User
+    - Definir um novo factory para o model Category
+    - Criar a seeder: php artisan make:seed UserTableSeeder
+    - Editar o método run() da seed:
+        factory(CodeDelivery\Models\User::class, 10)->create();
+    - O arquivo database/seeds/DatabaseSeeder.php é responsável por executar as seeds
+    - Incluir a chamada à seed no método run() de DatabaseSeeder.php
+    - Executar a seed: php artisan db:seed
+        . Repetir o processo para Category
+
+PRODUCTS
+    - Criar a migration: php artisan make:migration create_products_table --create=products
+    - Definir as colunas de prdutos, inclusive os relacionamentos:
+        $table->integer('category_id')->unsigned();
+        $table->foreign('categirt_id')->references('id')->on('categories');
+        $table->string('name');
+        $table->text('description');
+        $table->decimal('price');
+    - Executar a migração
+    - Criar o model Product e definir $fillable
+    - Criar uma factory para Procuct em ModelFactory.php (não colocar a coluan category_id)
+    - Criar uma função no model Category:
+        public function products() {
+            return $this->hasMany(CodeDelivery\Models\Product::class);
+        }
+    - Em Products:
+        public function category() {
+            return $this->belongsTo(CodeDelivery\Models\Category::class);
+        }
+    - Em CategoryTableSeeder.php:
+        factory(Category::class, 10)->create()->each(function($c){
+            for ($i = 0; $i < 5; $i++) {
+                $c->products()->save(factory(CodeDelivery\Models\Product::class)->make());
+            }
+        });
+    - Executar as migrations e as seeders: php artisan migrate:refresh --seed
+    - Realizar testes com o tinker
+    
+CLIENTS
+    - Criar a tabela (migration) de clientes: php artisan make:migration create_clients_table --create=clients
+    - Criar as colunas na migreation e relacionar com a tabela de Users
+        $table->increments('id');
+        $table->integer('user_id')->unsigned();
+        $table->foreign('user_id')->references('id')->on('users');
+        $table->string('phone');
+        $table->text('address');
+        $table->string('city');
+        $table->string('state');
+        $table->string('zipcode');
+    - Rodar a migration: php artisan migrate
+    - Criar o model Client e definir a variável $fillable
+    - Criar o relacionamento de um para um entre Client e User
+        // em Client
+        public function user() {
+            return $this->hasOne(User::class);
+        }
+
+        // em User
+        public function client() {
+            return $this->hasOne(Client::class);
+        }
+    - Criar a factory para Client em ModelFactory.php
+    - Definir a criação dos clientes na seeder de usuários:
+        factory(CodeDelivery\Models\User::class, 10)->create()->each(function($u) {
+            $u->client()->save(factoty(\CodeDelivery\Models\Client::class)->make());
+        });
+    - Executar a migração: php artisan migrate:refresh --seed
+
+PEDIDOS
+    - php artisan make:migration create_orders_table --create=orders
+        Criar as colunas e relacionar com clients
+        Criar um relacionamento para entregador
+            $table->integer('client_id')->unsigned();
+            $table->foreign('client_id')->references('id')->on('clients');
+            $table->integer('user_deliveryman_id')->unsigned()->nullable();
+            $table->foreign('user_deliveryman_id')->references('id')->on('users');
+            $table->decimal('total');
+            $table->smallInteger('status')->default(0);
+    - php artisan make:migration create_orders_items_table --create=orders_items
+        $table->integer('product_id')->unsigned();
+        $table->foreign('product_id')->references('id')->on('products');
+        $table->integer('order_id')->unsigned();
+        $table->foreign('order_id')->references('id')->on('orders');
+        $table->decimal('price');
+        $table->smallInteger('qtd');
+    - Rodar a migração
+    - Criar os models
+    - No model Order, definir $fillable e fazer os relacionamentos:
+            public function items() {
+                return $this->hasMany(OrderItem::class);
+            }
+            public function deliveryman() {
+                return $this->belongsTo(User::class);
+            }
+    - No model OrderItem, definir $fillable e fazer os relacionamentos:
+            public function product() {
+                return $this->belongsTo(Product::class);
+            }
+
+            public function order() {
+                return $this->belongsTo(Order::class);
+            }
+    - Na migration de orders, trocar o apontamento de client_id para a tabela users
+    - Na migration de users adicionar uma coluna role:
+        $table->string('role')->default('client');
+
+INSTALANDO REPOSITORIES
+    - coposer require pretturs/l5-repository
+    - Editar o arquivo config/app.php
+        . incluir nos prividers: Prettus\Repository\Providers\RepositoryServiceProvider::class
+    - Publicar os arquivos do pacote: php artisan vendor:publish
+    - Editar o arquivo config/repositoriy.php
+        . ajustar 'rootNamespace' para 'CdeDelivery\\'
+        . ajustar 'models' para 'Models'
+
+CRIANDO REPOSITORIES
