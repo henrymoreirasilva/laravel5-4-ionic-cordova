@@ -112,7 +112,7 @@ PEDIDOS
             public function deliveryman() {
                 return $this->belongsTo(User::class);
             }
-    - No model OrderItem, definir $fillable e fazer os relacionamentos:
+    - No model OrderItem, definir $fillable php e fazer os relacionamentos:
             public function product() {
                 return $this->belongsTo(Product::class);
             }
@@ -124,13 +124,166 @@ PEDIDOS
     - Na migration de users adicionar uma coluna role:
         $table->string('role')->default('client');
 
-INSTALANDO REPOSITORIES
+REPOSITORIES
     - coposer require pretturs/l5-repository
     - Editar o arquivo config/app.php
         . incluir nos prividers: Prettus\Repository\Providers\RepositoryServiceProvider::class
     - Publicar os arquivos do pacote: php artisan vendor:publish
     - Editar o arquivo config/repositoriy.php
-        . ajustar 'rootNamespace' para 'CdeDelivery\\'
-        . ajustar 'models' para 'Models'
+        . Ajustar 'rootNamespace' para 'CodeDelivery\\'
+        . Ajustar 'models' para 'Models'
+    - Criar o repository: php artisan make:repository Category -f
+        . O -f força a criação do model. Precisamos desta opção pois já criamos nossos models
+        . Este comando cria também o model Category, então, antes devemos copiar o conteúdo do model que já criamos
+          para colar no novo model vazio.
+        . O model User exige mais atenção ao copiar o conteúdo (interfaces, traits....).
+    - Criar um service provider para configurar a chamada ao repository (registrar)
+        . php artisan make:provider RepositoryServiceProvider
+        . Editar o método register() do arquivo RepositoryServiceProvider.php 
+            $this->app->bind(
+                'CodeDelivery\Repositories\CategoryRepository',
+                'CodeDelivery\Repositories\CategoryRepositoryEloquent'
+            );
+        . O trecho acima diz ao Laravel para instanciar a classe CategoryRepositoryEloquent
+          sempre que for solicitada a interface CategoryRepository.
+    - Registrar o novo provider no arquivo config/app.php
+        . CodeDelivery\Providers\RepositoryServiceProvider::class
+    - Para testar, crie uma rota de teste com o código
+        $repository = app()->make(CodeDelivery\Repositories\CategoryRepository::class);
+        reutrn $repository->all();
+    - RESUMO: criou os repositories para os models, criou o service provider para os repositories
+      e registrou o service provider no arquivo app.php
 
-CRIANDO REPOSITORIES
+SISTEMA ADMINISTRATIVO
+    - Editar o arquivo composer.json e acrescentar a linha: "minimum-stability":"dev",
+    - Instalar bestmomo/scafold para servir de base para a interface: composer require bestmomo/scafold
+    - Editar o arquivo app.php e registrar o provider: Bestmomo\Scafold\ScafoldServiceProvider::class
+    - Publicar o service provider: php artisan vendor:publish
+
+TRABALHANDO COM CONTROLLERS
+    - Para criar o controller: php artisan make:controller CategoriesController --plain
+    - Criar um método index() no controller criado.
+    - Criar uma rota para testar o método: Route:get('admin/categories', 'CategoriesController@index');
+    - Criar estrutura para os arquivos das views
+        . Criar o diretório resources\views\admin\categories
+        . Criar um arquivo: index.blade.php
+    - Chamar a view no controller: view('admin.categories.index')
+    - Atualizar a view utilizando o template 'app': @extends('app'), @section('content'), @endsection
+        @foreach (??? as ???) ... @endforeach, @if () ... @endif, {{ ... }}, {!! ... !!}
+    - Listar as categorias:
+        . Fazer uma DI no método index(): public function index(CategoryRepository $repository)
+        . Recuperar as categorias: $categories = $repository->all();
+        . Fazer o retorno da view: return view('admin.categories.index', compact('categories');
+        . Trocar o método all() para o método paginate() para permitir a paginação.
+        . Incluir na view index.blade o código da paginação sem utilizar os escapes: {!! ... !!}
+    - Para criar uma nova categoria: criar a view create.blade.php
+        . Criar um novo método (action) no model que retornará a nova view: create().
+        . Criar uma nova rota e nomeá-la: Route::get('/admin/categories/create', ['as' => 'admin.categories.create', 'uses' => 'CategoriesController@create']);
+        . Atualizar o link de nova categoria na view index: <a href="{{ route('admin.categories.create') }}" class="btn btn-default">Nova categoria</a>
+ILLUMINATEHTML
+    - Instalar o illuminate: composer require illuminate/html
+    - Registrar o repository: Illuminate\Html\HtmlServiceProvider::class
+    - Registrar a facade (são como apelidos): 
+        'Html' => Illuminate\Html\HtmlFacade::class
+        'Form' => Illuminate\Html\FormFacade::class
+CRIANDO FORMULÁRIO
+    - Criar uma nova rota:
+        Route::post('admin/categories/store', ['as' => 'admin.categories.store', 'uses' => 'CategoriesController@store']);
+    - Criar a ação para a rota: public function store()
+        . Criar um construtor em CategoryController e injetar o CategoryRepository
+        . Criar o método store:
+            public function store(Request $request) {
+                $data = $request->all();
+                $this->repository->create($data);
+                return redirect()->route('admin.categories.index');
+            }
+        . Criar a rota index:
+            Route::get('admin/categories/index', ['as' => 'admin.categories.index', 'uses' => 'CategoriesController@index']);
+    - Editar o arquivo create.blade.php
+        {!! Form:open(['rote' => 'admin.categories.store']) !!}
+        <div class="form-group">
+            {!! Form::label('name', 'Name:') !!}
+            {!! Form::text('name', null, ['class' => 'form-control']) !!}
+        </div>
+        <div class="form-group">
+            {!! Form::submit('Criar categoria', ['class' => 'btn btn-primary']) !!}
+        </div>
+        {!! Form:close() !!}
+CUSTOM REQUEST
+    - Criar uma nova request para validar os dados
+        php artisan make:request AdminCategoryRequest
+    - Editar a request cirada AdminCategoryRequest.php. No método authorize() torcar o retorno para TRUE.
+      Este método serve para implementar alguma lógica de permissão de acesso.
+    - Editar o método rules() e criar as validações necessárias. Ex.:
+        return [
+            'name' => 'required|min:3'
+        ];
+    - Editar a view categories/create.blade.php:
+        @if ($errors->any())
+        <ul class="alert">
+        @foreach ($errors->all() as $error)
+            <li>{{$error}}</li>
+        @endforeach     
+        </ul>
+        @endif
+    - O método store() deverá agora receber um AdminCategoryRequest no lugar da Request
+
+UPDATING
+    - Criar uma nova rota: Route::get('admin/categories/edit/{id}', ['as' => 'admin.categories.edit', 'uses' => 'CategoriesController@edit']);
+    - Criar o método edit em CategoriesController
+        public function edit($id) {
+            $category = $this->repository->find($id);
+            return view('admin.categories.edit', compact('category'));
+        }
+    - Duplicar a view create e renomear para edit e ajustar o form:
+        {!! Form::model($category, ['route' => ['admin.categories.update', $category->id]]) !!}
+
+    - Criar a rota e o método update:
+        Route::post('admin/categories/update/{id}', ['as' => 'admin.categories.update', 'uses' => 'CategoriesController@update']);
+       
+        public function update(AdminCategoryRequest $request, $id) {
+            $data = $request->all();
+            $this->repository->update($data, $id);
+            return redirect()->route('admin.categories.index');
+        }
+    - Criar o botão para acesso ao formulário de edição:
+        . Editar a view index:
+            <a href="{{route('admin.categories.edit', ['id' => $category->id])}} class="btn btn-default btn-small">Editar</a>
+    - Editar a template view app.blade.php e criar a opção de acesso às categorias:
+        <a href="{{route('admin.categories.index')}}">Categorias</a>
+
+REFATORANDO FORM
+    - Criar uma inlcude com os campos do form: categories\_form.blade.php.
+    - Criar uma include para verificar erros: errors\_check.blade.php.
+    - Ajustar create e edit.
+ 
+CRUD PRODUTOS
+    - Criar um ProductsController (duplicar a category).
+    - Criar as rotas (duplicar).
+    - Criar as views (duplicar).
+    - Para criar o select de categorias no form de produtos:
+        . Injetar o CategoryRepository em ProductsController
+            public function __construct(ProductRepository $repository, CategoryRepository $categoryRepository) {
+                $this->repository = $repository;
+                $this->categoryRepository = $categoryRepository;
+            }
+        . Atualizar o método edit():
+            public function edit($id) {
+                $product = $this->repository->find($id);
+                $categories = $this->categoryRepository->lists('name', 'id');
+                return view('admin.products.edit', compact('product', 'categories'));
+            }
+    - Atualizar demais métodos do ProductsController
+    - Para excluir produtos:
+        . Criar um método destroy() em ProductController
+            public function destroy($id) {
+                $this->repository->delete($id);
+                return redirect()->route('admin.products.index');
+            }
+        . Criar a rota.
+            Route::get('admin/products/destroy/{id}', ['as' => 'admin.products.destroy', 'uses' => 'ProductsController@destroy']);
+        . Criar o link para remoção na view:
+            <a href="{{ route('admin.products.destroy', ['id' => $product->id]) }}" class="btn btn-default btn-sm">Excluir</a>
+
+AGRUPANDO ROTAS
+    

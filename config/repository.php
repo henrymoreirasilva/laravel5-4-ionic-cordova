@@ -220,7 +220,7 @@ return [
     */
     'generator'  => [
         'basePath'      => app_path(),
-        'rootNamespace' => 'CpdeDelivery\\',
+        'rootNamespace' => 'CodeDelivery\\',
         'paths'         => [
             'models'       => 'Models',
             'repositories' => 'Repositories',
