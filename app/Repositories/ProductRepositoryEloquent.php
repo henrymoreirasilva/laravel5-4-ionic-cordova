@@ -6,7 +6,6 @@ use Prettus\Repository\Eloquent\BaseRepository;
 use Prettus\Repository\Criteria\RequestCriteria;
 use CodeDelivery\Repositories\ProductRepository;
 use CodeDelivery\Models\Product;
-use CodeDelivery\Validators\ProductValidator;
 
 /**
  * Class ProductRepositoryEloquent
@@ -14,6 +13,7 @@ use CodeDelivery\Validators\ProductValidator;
  */
 class ProductRepositoryEloquent extends BaseRepository implements ProductRepository
 {
+    
     /**
      * Specify Model class name
      *
@@ -22,9 +22,7 @@ class ProductRepositoryEloquent extends BaseRepository implements ProductReposit
     public function model()
     {
         return Product::class;
-    }
-
-    
+    }    
 
     /**
      * Boot up the repository, pushing criteria

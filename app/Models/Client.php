@@ -22,7 +22,7 @@ class Client extends Model implements Transformable
     public function user() {
         
         // um para um
-        return $this->hasOne(User::class);
+        return $this->hasOne(User::class, 'id', 'user_id');
     }
 
 }

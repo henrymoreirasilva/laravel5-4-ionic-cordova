@@ -24,7 +24,8 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
         return Order::class;
     }
 
-    
+
+
 
     /**
      * Boot up the repository, pushing criteria
@@ -32,5 +33,18 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
     public function boot()
     {
         $this->pushCriteria(app(RequestCriteria::class));
+    }
+    
+    public function getByIdAndDeliveryman($id, $idDeliveryman) {
+        $result = $this->with(['client', 'items', 'cupom'])->findWhere(['id' => $id, 'user_deliveryman_id' => $idDeliveryman]);
+        $result = $result->first();
+        
+        if ($result) {
+            $result->items->each(function($item) {
+                $item->product;
+            });
+        }
+
+        return $result;
     }
 }

@@ -28,7 +28,7 @@ $factory->define(CodeDelivery\Models\Category::class, function (Faker\Generator 
 
 $factory->define(CodeDelivery\Models\Product::class, function (Faker\Generator $faker) {
     return [
-        'name' => $faker->name,
+        'name' => $faker->word,
         'description' => $faker->text,
         'price' => $faker->randomFloat(2, 10, 50)
     ];
@@ -41,5 +41,26 @@ $factory->define(CodeDelivery\Models\Client::class, function (Faker\Generator $f
         'city' => $faker->city,
         'state' => $faker->state,
         'zipcode' => $faker->postcode
+    ];
+});
+
+$factory->define(CodeDelivery\Models\Order::class, function (Faker\Generator $faker) {
+    return [
+        'client_id' => rand(1, 10),
+        'total' => $faker->randomFloat(2, 50, 100),
+        'status' => 0,
+    ];
+});
+
+$factory->define(CodeDelivery\Models\OrderItem::class, function (Faker\Generator $faker) {
+    return [
+
+    ];
+});
+
+$factory->define(CodeDelivery\Models\Cupom::class, function (Faker\Generator $faker) {
+    return [
+        'code' => rand(10000, 99999),
+        'value' => rand(10, 50),
     ];
 });

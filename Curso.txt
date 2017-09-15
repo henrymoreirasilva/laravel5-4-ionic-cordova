@@ -285,5 +285,381 @@ CRUD PRODUTOS
         . Criar o link para remoção na view:
             <a href="{{ route('admin.products.destroy', ['id' => $product->id]) }}" class="btn btn-default btn-sm">Excluir</a>
 
-AGRUPANDO ROTAS
-    
+ROTAS
+    - Agrupar rotas:
+        Route::group(['prefix' => 'admin', 'as' => 'admin.'], function() {
+            Route::get('categories/edit/{id}', ['as' => 'categories.edit', 'uses' => 'CategoriesController@edit']);
+            ...
+            ...
+        });
+    - Middleware:
+        . Preparar um usuário:
+            . Editar a seed UserTableSeeder.php
+                factory(User::class)->create(
+                    'name' => 'User',
+                    'email' => 'user@user.com',
+                    'password' => bcrypt(123456),
+                    'remember_token' => str_random(10)
+                );
+                factory(User::class)->create(
+                    'name' => 'User admin',
+                    'email' => 'admin@user.com',
+                    'password' => bcrypt(123456),
+                    'role' => 'admin',
+                    'remember_token' => str_random(10)
+                );
+            . Rodar as seeds novamente: php artisan migrate:refresh --seed
+        . Criar o middleware: php artisan make:middleware CheckRole
+        . O método handle() será executado quando o middleware for chamado
+        . Editar o arquivo http\kernel.php e registrar o middleware:
+            'auth.checkrole' => \CodeDelivery\Http\Middleware\CheckRole::class
+        . Editar o arquivo route.php e acrescentar à rota: 'middleware' => 'auth.checrole'
+        . Criar as validações no método handle() em CheckRole:
+            if (!use \Illuminate\Support\Facades\Auth::check() {
+                return redirect('/auth/login');
+            }
+            if (Ause \Illuminate\Support\Facades\Auth::user()->role != 'admin' {
+                return redirect('/auth/login');
+            }
+CLIENTES CONTROLLE
+    - Duplicar CategoryController e ajustar para ClientController.
+    - Duplicar AdminCategoryRequest e ajustar para AdminClientRequest.
+    - Criar as rotas para clients
+    - Duplicar as views.
+        . Ao ajustar a index utilizar $client->user->name para listar o nome
+        . Para que o nome seja listado, atualizar o método user() do model Client:
+            return $this->hasOne(User::class, 'id', 'user_id');
+
+    - Ajustar a view edit.blade.php substituindo categorias para clientes.
+    - Configurar a include _form.blade para exibir os dados do cliente (dados na tabela de users):
+        {!! Form::text('user[name]', null, ['class', 'form-control']) !!}
+        {!! Form::text('user[email]', null, ['class', 'form-control']) !!}
+        {!! Form::text('phone', null, ['class', 'form-control']) !!}
+        {!! Form::textarea('address', null, ['class', 'form-control']) !!}
+        {!! Form::text('city, null, ['class', 'form-control']) !!}
+        {!! Form::text('state', null, ['class', 'form-control']) !!}
+        {!! Form::text('zipcode', null, ['class', 'form-control']) !!}
+
+CLIENT SERVICE
+    - A camada de Service serve para manipular dados de acordo com regras de negócio específicas.
+    - Neste caso, sempre que o nome do cliente (ex.) for editado, isso deverá persistir na tabela de uers.
+      Isto se encaixa em uma regra de negócio.
+    - Criar o arquivo app/Services/ClientService.php
+    - Editar este arquivo e no método __construct(), injetar ClientRepository e UserRepository.
+
+    - Criar um método update(array $data, $id)
+        public function update(array $data, $id) {
+            $this->clientRepository->update($data, $id);
+            $userId = $this->clientRepository->find($id, 'user_id')->user_id;
+            $this->userRepository->update($data['user'], $userId);
+        }
+        . Editar ClientController e injetar o ClientService.
+        . Editar o método update() de ClientController:
+            public function update(AdminClientRequest $request, $id) {
+                $data = $request->all();
+                $this->clientService->update($data, $id);
+                ....
+            }
+    - Editar a view create.blade.php e ajustar para Client.
+    - Criar uma senha padrão para o cliente cadastrado na área administrativa.
+        . Passos para criar um método create no ClientService:
+            1 - Criar um passowrd para user;
+            2 - Criar o user;
+            3 - Recuperar o id do user criado;
+            4 - Atribuir o id do user criado para o campo user_id de client;
+            5 - Criar o cliente;
+            NOTA: Ajustar o método store() de ClientsController para chamar o método create do ClientService.
+ORDERS
+    - Criar a seed para order.
+        . Obs.: não popular deliveryman_id
+        . Obs.: para cada order criada, criar também os itens:
+            factory(Order::class, 10)->create()->each(function ($o) {
+                for ($i = 0; $i <= 2; $i++) {
+                    $o->items()->save(factory(OrderItem::class)->make(
+                        [
+                            'product_id' => rand(1, 5),
+                            'qtd' => 2,
+                            'price' => 50
+                        ]
+                    ));
+                }
+            });
+        . Criar uma factory vazia para OrderItem.
+    - Rodar as seeds: php artisan migrate:refresh --seed
+    - Criar o controller para orders (DI de OrderRepository).
+    - Criar o método index e a rota para o mesmo.
+    - Criar a view index (obs.: não serão criados pedidos pelo admin).
+    - Atualizar a seed de users com uma factory para entregadores.
+        . Obs.: definir a coluna role como 'deliveryman'.
+        . Obs.: criar uns 
+    - Criar a view edit 
+        . Obs.: só serão editados o status e o deliveryman.
+        . Criar o método update e a rota.
+        . Criar uma lista de status. Por enquanto, criar no controller.
+        . Criar um método getDeliverymen() para listar os entregadores em UserRepositoryEloquent:
+            reutrn $this->model->where(['role' => 'deliveryman'])->lists('name', 'id');
+        . Criar a listagem de entregadores.
+    - Ajustar a relação do método de deliveryman() do model Order:
+        return $this->belongsTo(User::class, 'user_deliveryman_id', 'id');
+
+CHECKOUT
+    - Criar uma entidade cupom: php artisan make:repository cupom. Em seguida registrar o repository em RepositoryServiceProvider.
+    - Criar a migração create_cupoms_table:
+        $table->string('code');
+        $table->decimal('value');
+        $table->boolean('used')->default(0);
+    - Nesta mesma migrate, alterar a tabela de orders:
+        Schema:table('orders', function(Blueprint $table) {
+            $table->integer('cupom_id')->unsigned()->nullable();
+            $table->foreing('cupom_id')->references('id')->on->('cupoms');
+        }
+    - Ainda nesta migrate, editar o método down() e remover a integridade entre cupoms e orders:
+        Schema:table('orders', function(Blueprint $table) {
+            $table->dropForeign('orders_cupom_id_foreign');
+            $table->dropColumn('cupom_id');
+        }
+        Schema::drop('cupoms');
+    - Rodar a migração.
+    - Criar a seed CupomTableSeeder.
+    - Criar o controller CupomsController. Criar os métodos e rotas.
+    - Criar as views
+
+    - Criar as rotas para o checkout. Criar um grupo para a área do cliente (no momento sem middleware):
+        Route::group(['prefix'=>'customer', 'as'=>'customer.'], function() {
+            Route::get('order/create', ['as' => 'order.create', 'uses' => 'CheckoutController@create']);
+        });
+    - Criar o CheckoutController.
+        . Injetar Order, User e Product.
+        . Em ProductRepositoryEloquent criar uma lista (lists()) de produtos para ser utilizada no create() do checkoutt (id, name).
+        . Criar o método create().
+        . Criar a view customer.order.create.
+        . Criar um form com campo select para produtos e input para quantiade. Também um botão para criar novos campos a cada item.
+        . Criar função javascript para inserir itens no form.
+        . Criar função para calcular total. 
+    - Criar o OrderService
+        . Injetar: Cupom, Order e Product.
+        . Criar o método create().
+            . Iniciar uma transação:
+                \DB::beginTransaction();
+                try {
+            . Definir o status como 0: 
+                $data['status'] = 0;
+            . Tratar a existência do cupom.
+                if (isset($data['cupom_code'])) {
+                    $cupom = $this->cupomRepository->findByField('code', $data['cupom_code'])->first();
+                    $data['cupom_id'] = $cupom->id;
+                    $cupom->used = 1;
+                    $cupom->save();
+                    unset($data['cupom_code']);
+                }
+            . Criar o pedido.
+                $items = $data['items'];
+                unset($data['items']);
+                $order = $this->orderRepository->create($data);
+                $total = 0;
+            . Salvar os itens.
+                foreach ($items as $item) {
+                    $item['price'] = $this->productRepository->find($item['product_id']->price;
+                    $order->items()->create($item);
+                    $total += $item['price'] * $item['qtd'];
+                }
+            . Atualizar o total.
+                $order->total = $total;
+                if (isset($cupom)) {
+                    $order->total = total - $cupom->value;
+                }
+                $order->save();
+            . Encerrar a transação:
+                    \DB::commit()
+                } catch (\Exception $e) {
+                    \DB::rollback();
+                    throw $e;
+                }
+    - Implementar o CheckoutController: criar o método store() utilizar o método create() utilizando o service criado.
+        . Lembrar que o client_id deve ser recuperado pelo UserRepository->find() com Auth::user()->id
+        . Criar a rota para store().
+        . Criar a rota e a view para index de orders
+            public function index() {
+                $clientId = $this->userRepository->find(Auth::user()->id)->client->id;
+                $orders = $this->repository->scopeQuery(function($query) use($clientId) {
+                    return $query->where('client_id', '=', $clientId);
+                })->paginate();
+            }
+    - Os usuários User e Admin não possuem clientes relacionados, então a seeder de User deve ser ajustada:
+        ...->client()->save(factory(Client::class)->make());
+        . Executar um refresh no banco.
+    - Restringir o acesso às opções de acordo com usuários e clientes em app.blade:
+        . Utilizsar: Auth::user()->role.
+    - Ajustar CheckRole.php para receber um parâmetro $role e validar os acessos às rotas com este parâmetro.
+    - Adicionar o middleware para as rotas de clientes.
+
+OAUTH2
+    - Instalando:
+        . Biblioteca: lucadegasperi/oauth2-server-laravel (seguir os passos de instalação no próprio git)
+            composer require lucadegasperi/oauth2-server-laravel:5.0.*
+        
+    - Configurar rota para retornar token
+        . Seguir as instruções em "with de password grant"
+        . Configurar o middleware $except no arquivo VerifyCsrfToken.php, adicionando as rotas que não deverão receber a
+        verificação do csrf:
+            'oauth/access_token'
+    - Criar cliente teste na tabela oauth_clients
+    - Testar a autenticação passando os parâmetros: grant_type, username, password, client_id, client_secret
+    - Configurar refresh-token e testar:
+        grant_type = refresh_token
+        client_id = ...
+        client_secret = ...
+        refresh_token = <refresh-token>
+    - Criar o agrupamento de rotas da api:
+        Route::group(['prefix' => 'api', 'middleware' => 'oauth', 'as' => 'api'], function() {
+            Rout:get('teste', function() {
+                'id' => 1,
+                'name' => 'henry'
+            });
+        });
+    - Escapar a rota da api em VerifyCsrfToken.php
+        'api/*'
+    - Testar a rota passando o token no reader (Authorization = Bearer <token>).
+    - Configurar o refresh_token conforme documentação.
+        . Testar o refresh_token passando: grant_type = refresh_token, refresh_token = <...>, client_id, client_secret
+    - Agrupandoi rotas da api:
+        Route::group(['prefix' => 'api', 'middleware' => 'oauth',  'as' => 'api.'], function(){
+            Route::get('pedidos', function() {
+                return [
+                    'id' => 1,
+                    'name' => 'henry'
+                ];
+            });   
+        });
+API CLIENTE
+    - Deverá existir uma separação para client e deliveryman:
+        Rout:group(['prefis' => 'client', 'as' => 'client.'], function() {
+            Route::get('pedidos', function() {
+                return [
+                    'id' => 1,
+                    'name' => 'henry - Cliente'
+                ];
+            }); 
+        });
+        Rout:group(['prefis' => 'deliveryman', 'as' => 'deliveryman.'], function() {
+            Route::get('pedidos', function() {
+                return [
+                    'id' => 1,
+                    'name' => 'henry - Entregador'
+                ];
+            }); 
+        });
+
+OAUTHCHECKROLE
+    - Clonar checkrole.php
+        . Limpar referências ao Auth.
+        . Fazer o DI de UserRepository.
+        . Ter acesso ao usuário autenticado no OAuth: 
+            $id = Authorizer:getResourseOwnerId()       // facade Authorizer
+            $user = $this->userRepository->find($id);
+            if ($user->role != $role) {
+                abort(403, 'Access forbiden!');
+            }
+            return $next($request);
+        . Registrar este novo middleware em kernel.php.
+        . Incluir o middleware registrado nas respectivas rotas de client e deliveryman.
+
+CONTROLLER CLIENTCHECKOUT - RESTFUL
+    - Criar o diretório Controllers/Api/Client.
+    - Copiar o ClientController existente.
+    - Criar os métodos REST
+    - Deve ser importado o Controller a ser extendido devido ao caminho api/client.
+    - Ajustar namespace: namespace CodeDelivery\Http\Controllers\Api\Client;
+    - Executar: composer dump_autoload
+    - Ajustar as rotas utilisando Rout::resource()
+        Route::resource('order', 'Api\Client\ClientCheckoutController',
+            ['except' => ['create', 'edit', 'destroy']]);
+    - index()
+        . Obter o código do usuário através de Authorizer::getResourceOwnerId().
+        . Substituir em find().
+
+    - store()
+        . Obter o código do usuário através de Authorizer::getResourceOwnerId().
+        . Substituir em find().
+        . Retornar a order no método create de OrderService.
+
+    - show()
+        $order->items->each(function($item) {
+            $item->product->category;
+        });
+
+CONTROLLER DELIVERYMANCHECKOUTCONTROLLER
+    - Clonar ClientCheckoutController.php
+    - Ajustar métodos index() e show(). Eliminar o store().
+    - Criar a rota.
+
+
+    - Criar no repository um método getByIdAndDeliveryman() para checar se order pertece ao deliverymanb:
+        function getByIdAndDeliveryman($id, $idDeliveryman) {
+            $result = $this->with(['client', 'items', 'cupom'])->findWhere([
+                'id' => $id,
+                'user_deliveryman_id' => $idDeliveryman
+            ]);
+
+            $result = $result->first();
+            if ($result) {
+                $result->items->each(function($item){
+                    $item->product;
+                });
+            }
+            return $result;
+        }
+    - Ajustar permissão no método show() do controller:
+        $idDeliveryman = Authorizer::getResourceOwnerId();
+        return $this->repository->getByIdAndDeliveryman($id, $idDeliveryman);
+    - Na interface OrderRepository, declarar o método getByIdAndDeliveryman.
+
+    - Criando o endpoint para atualizar o status.
+        . Criar uma rota Route:
+            Route:patch('order/{id}/update-status', [
+                'uses' => 'Api\Deliveryman\DeliverymanCheckoutController@updateStatus',
+                'as' => 'orders.update_status']
+            )
+    - Criar o método updateStatus() no OrderService.php:
+        public funciton updateStatus($id, $idDeliveryman) {
+            $order = $this->orderRepository->getByIdAndDeliveryman($id, $idDeliveryman);
+            if ($order instanceof Order) {
+                $order->status = $status;
+                $order->save();
+                return $order;
+            }
+            return false;
+        }
+    - Criar o método updateStatus() no DeliverymanCheckoutController.php:
+        public function updateStatus($id) {
+            $idDeliveryman = Authorizer::getResourceOwnerId();
+            $order = $this->service->updateStatus($id, $idDeliveryman, $request->get('status'); 
+            if ($order) {
+                return $order;
+            }
+            abort(400, 'Order não encontrado.');
+        }
+***
+VALIDAÇÕES E SERIALIZAÇÕES
+    - Criar a request Request\CheckoutRequest.php.
+    - Criar um método buildRulesItems():
+        public function buildRulesItems($key, array &$rules) {
+            $rules["items.$key.product_id"] => 'required',
+            $rules["items.$key.qtd"] => 'required',
+        }
+    - Editar o método rules() e criar as regras de validação:
+        public function rules(HttpRequest $request) { 
+            return [
+                'cupom_code' => 'exists:cupoms,code,used,0'     // validar se o cupom existe em cupoms pela coluna code e a coluna used seja zero
+            ]
+            $this->buildRulesItems(0, $rules)           // para garantir que deverá ser informado ao menos um item
+            $items = $request->get('items', []);        // retorna os itens do request ou um array vazio
+            $items = is_array($items)?$items:[];
+            foreach ($items as $k => $v) {
+                $this->buildRulesItems($k, $rules);
+            }
+            $return $rules;
+        }
+    - Em ClientCheckoutController, fazer a DI da request criada nos métodos necessários.
+    - Criar um método no request para validar os itens conforme a quantidade de itens informados:
+        

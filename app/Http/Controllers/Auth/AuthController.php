@@ -2,8 +2,8 @@
 
 namespace CodeDelivery\Http\Controllers\Auth;
 
-use CodeDelivery\User;
-use Validator;
+use CodeDelivery\Models\User;
+use Illuminate\Support\Facades\Validator;
 use CodeDelivery\Http\Controllers\Controller;
 use Illuminate\Foundation\Auth\ThrottlesLogins;
 use Illuminate\Foundation\Auth\AuthenticatesAndRegistersUsers;

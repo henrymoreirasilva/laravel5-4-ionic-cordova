@@ -42,5 +42,8 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             \CodeDelivery\Repositories\UserRepository::class, \CodeDelivery\Repositories\UserRepositoryEloquent::class
         );
+        $this->app->bind(
+            \CodeDelivery\Repositories\CupomRepository::class, \CodeDelivery\Repositories\CupomRepositoryEloquent::class
+        );
     }
 }
