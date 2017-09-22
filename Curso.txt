@@ -321,7 +321,7 @@ ROTAS
             if (Ause \Illuminate\Support\Facades\Auth::user()->role != 'admin' {
                 return redirect('/auth/login');
             }
-CLIENTES CONTROLLE
+CLIENT CONTROLLER
     - Duplicar CategoryController e ajustar para ClientController.
     - Duplicar AdminCategoryRequest e ajustar para AdminClientRequest.
     - Criar as rotas para clients
@@ -639,7 +639,6 @@ CONTROLLER DELIVERYMANCHECKOUTCONTROLLER
             }
             abort(400, 'Order não encontrado.');
         }
-***
 VALIDAÇÕES E SERIALIZAÇÕES
     - Criar a request Request\CheckoutRequest.php.
     - Criar um método buildRulesItems():
@@ -662,4 +661,57 @@ VALIDAÇÕES E SERIALIZAÇÕES
         }
     - Em ClientCheckoutController, fazer a DI da request criada nos métodos necessários.
     - Criar um método no request para validar os itens conforme a quantidade de itens informados:
-        
+    - Testar o request CheckoutRequest no controller CheckoutController:
+        public function store(CheckoutRequest $request)
+
+FRACTAL THEPHPLEAGUE
+    - Instalando: composer require league/fractal
+    - Criando transformer no model Order (implements Transformable):
+        . A trait TransformableTrait possui um método transform() que podemos sobrepor.
+        . Editar o model Order:
+            public function trnasform() {
+                return [
+                    'order' => $this->id,
+                ]
+            }
+        . Criar um método presenter() em OrderRepositoryEloquent que definirá 
+          que o presenter padrão será utilizado:
+            public function presenter() {
+                return \Prettus\Repository\Presenter\ModelFractalPresenter::class;
+            }
+
+CRIANDO PRESENTERS E TRANSFORMES
+    - Para cirar o OrderTransformer: php artisan make:transform Order
+    - Para criar o OrderPresenter: php artisan make:presenter Order
+    - Criar o método presenter() em OrderRepositoryEloquent:
+        public function presenter() {
+            return \CodeDelivery\Presenters\OrderPresenter::class;
+        }
+
+SERIALIZANDO COM RELACIONAMENT0S
+    - Criar o método includeCupom() em OrderTransformer:
+        public function includeCupom(Order $model) {
+            if (!$model->cupom) {
+                return NULL;
+            }
+            return $this->item($model->cupom, new CupomTransformer);        // item() renderiza um objeto
+        }
+    - Criar o transformer para Cupom: php artisan make:transform Cupom
+    - Definir $defaultIncludes (renderiza todos os relacionamentos):
+        protected $defaultIncludes = ['cupom'];
+    - Criar o método includeItems() em OrderTransform:
+        public function includeItems(Order $model) {
+            return $this->colection($model->items, new OrderItemsTransformer);      // colection() renderiza uma coleção
+        }
+    - Criar o transformer para OrderItem: php artisan make:transform OrderItem
+    - Definir $availiableIncludes (renderiza relacionamentos sub demanda - via url)
+        protected $availableIncludes = ['cupom', 'items'];
+        . Para utilizar um dos relacionamentos basta incluir o parâmetro include na URL e 
+        atribuir o nome dos relacionamentos separados por vírgula
+    - Escapando presenter por padrão
+        . Como as informações estão sendo consumidas na sua maioria por objeto e não por array,
+        podemos definir que os presenters não serão utilizados como padrão. Isto pode ser 
+        definido no repository (OrderRepositoryEloquent):
+            protected $skipPresenter = true;
+***
+    - CLIENTCHECKOUTCONTROLLER

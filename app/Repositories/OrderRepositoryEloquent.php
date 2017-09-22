@@ -14,6 +14,8 @@ use CodeDelivery\Validators\OrderValidator;
  */
 class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
 {
+    protected $skipPresenter = true;
+    
     /**
      * Specify Model class name
      *
@@ -46,5 +48,9 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
         }
 
         return $result;
+    }
+    
+    public function presenter() {
+        return \CodeDelivery\Presenters\OrderPresenter::class;
     }
 }
