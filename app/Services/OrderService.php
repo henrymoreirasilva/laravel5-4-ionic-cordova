@@ -24,8 +24,7 @@ class OrderService {
         \DB::beginTransaction();
         try {
             $total = 0;
-            $data['status'] = 0;
-            
+
             if (isset($data['cupom_code'])) {
                 $cupom = $this->cupomRepository->findByField('code', $data['cupom_code'])->first();
                 $data['cupom_id'] = $cupom->id;

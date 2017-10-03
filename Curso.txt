@@ -1,5 +1,5 @@
 *** LARAVEL 5.1 COM IONIC E CORDOVA
-
+*** LARAVEL
 CONFIGURANDO A APLICAÇÃO
     - Criar o projeto: composer create-project --prefer-dist laravel/laravel <nome_projeto> 5.1.*
     - Conferir APP_KEY em .env
@@ -713,5 +713,40 @@ SERIALIZANDO COM RELACIONAMENT0S
         podemos definir que os presenters não serão utilizados como padrão. Isto pode ser 
         definido no repository (OrderRepositoryEloquent):
             protected $skipPresenter = true;
-***
-    - CLIENTCHECKOUTCONTROLLER
+    - Presenter em ClientCheckoutController:
+        . Definir: private $with = ['client', 'cupom', 'items']
+        . Atualizar o método index():
+            $orders = $this->repository->skipPresenter(false)->width($this->width)->scopeQuery....
+        . Atualizar o método store():
+            $o = $this->service->create($data);
+            return $this->repository->skipPresenter(false)->with($this->with)->find($o->id);
+        . Atualizar o método show():
+            return $this->repository->skipPresenter(false)->with($this->with)->find($id);
+        . Criar o método includeClient() em OrderTransformeer.
+        . Criar o transformer para Client.
+    - Presenter em DeliverymanCheckoutController:
+        . Ajustar da mesma forma que foi feito em ClientCheckoutController.
+        . Atenção no método updateStatus():
+            if ($order) {
+                return $this->orderRepository->find($order->id);
+            }
+        . Atualizar o método getByIdAndDeliveryman() em OrderRepositoryEloquent:
+            public function getByIdAndDeliveryman($id, $idDeliveryman) {
+                $result = $this->with(['client', 'items', 'cupom'])->findWhere(['id' => $id, 'user_deliveryman_id' => $idDeliveryman]);
+
+                if ($result instanceof Collection) {
+                    $result = $result->first();
+                } else {
+                    if (isset($result['data']) and count($result['data']) == 1) {
+                        $result = [
+                            "data" => $result['data'][0]
+                        ];
+                    } else {
+                        throw new ModelNotFoundException('Order não existe');
+                    }
+                }
+
+                return $result;
+            }
+    
+*** IONIC
